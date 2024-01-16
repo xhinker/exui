@@ -94,7 +94,7 @@ def get_default_notepad_settings():
     {
         "maxtokens": 256,
         "chunktokens": 64,
-        "temperature": 0.8,
+        "temperature": 0.5,
         "top_k": 50,
         "top_p": 0.8,
         "min_p": 0.0,
@@ -103,7 +103,7 @@ def get_default_notepad_settings():
         "mirostat_tau": 1.25,
         "mirostat_eta": 0.1,
         "typical": 0.0,
-        "repp": 1.05,
+        "repp": 1.1,
         "repr": 1024,
         "repd": 512,
         "stop_conditions": [ { "text": "</s>", "inclusive": False } ],
