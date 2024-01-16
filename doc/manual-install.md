@@ -51,3 +51,9 @@ Example: pip install path\to\downloaded\file\exllamav2-0.0.9+cu121-cp311-cp311-w
 ## Start exui
 
 With those packages installed, you should now be able to launch exui by entering ```python server.py``` in the Terminal.
+
+To start without open browser, and a specific port run this:
+
+```sh
+python server.py -nb -host 0.0.0.0:8080
+```
