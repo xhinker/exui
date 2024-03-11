@@ -92,18 +92,18 @@ def delete_session(d_session):
 
 
 def get_default_session_settings():
-    return \
-    {
+    return {
         "prompt_format": "Chat-RP",
         "roles": [ "User", "Assistant", "", "", "", "", "", "" ],
         "system_prompt_default": True,
         #"system_prompt": "You are helpful assistant,smart,have the best common sense, good at answering questions.",
-        "system_prompt": "This is a chat between a curious user and a helpful AI assistant.",
+        #"system_prompt": "This is a chat between a curious user and a helpful AI assistant.",
+        "system_prompt": "You are a helpful and smart assistant",
         "maxtokens": 2048,
         "chunktokens": 512,
         "stop_newline": False,
         "temperature": 0.7,
-        "top_k": 50,
+        "top_k": 80,
         "top_p": 0.8,
         "min_p": 0.0,
         "tfs": 0.0,

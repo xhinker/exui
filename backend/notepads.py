@@ -103,11 +103,7 @@ def get_default_notepad_settings():
         "mirostat_tau": 1.25,
         "mirostat_eta": 0.1,
         "typical": 0.0,
-<<<<<<< HEAD
-        "repp": 1.01,
-=======
         "repp": 1.1,
->>>>>>> 6e8e10f6391c05e4d8c53b00ed4d3cb55f589cf2
         "repr": 1024,
         "repd": 512,
         "quad_sampling": 0.0,
