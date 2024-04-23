@@ -16,6 +16,13 @@ class PromptFormat:
     def encode_special_tokens(self):
         return True
 
+    def context_bos(self):
+        return False
+
+    @staticmethod
+    def supports_system_prompt():
+        return True
+
 
 class PromptFormat_raw(PromptFormat):
 
@@ -35,7 +42,7 @@ class PromptFormat_raw(PromptFormat):
         raise NotImplementedError
 
     def encode_special_tokens(self):
-        return False
+        return True
 
 
 class PromptFormat_llama(PromptFormat):
@@ -65,6 +72,42 @@ class PromptFormat_llama(PromptFormat):
             text += response
             text += "</s>"
         return text
+
+
+class PromptFormat_llama3(PromptFormat):
+
+    description = "Llama-3 instruct template.chat"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def is_instruct(self):
+        return True
+
+    def stop_conditions(self, tokenizer, settings):
+        return \
+            [tokenizer.single_id("<|eot_id|>"),
+             tokenizer.single_id("<|start_header_id|>"),
+             tokenizer.eos_token_id]
+
+    def format(self, prompt, response, system_prompt, settings):
+        text = ""
+        if system_prompt and system_prompt.strip() != "":
+            text += "<|start_header_id|>system<|end_header_id|>\n\n"
+            text += system_prompt
+            text += "<|eot_id|>"
+        text += "<|start_header_id|>user<|end_header_id|>\n\n"
+        text += prompt
+        text += "<|eot_id|>"
+        text += "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        if response:
+            text += response
+            text += "<|eot_id|>"
+        return text
+
+    def context_bos(self):
+        return True
 
 
 class PromptFormat_mistrallite(PromptFormat):
@@ -236,19 +279,138 @@ class PromptFormat_deepseek_instruct(PromptFormat):
         return text
 
 
+class PromptFormat_openchat(PromptFormat):
+
+    description = "OpenChat"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def is_instruct(self):
+        return True
+
+    def stop_conditions(self, tokenizer, settings):
+        return \
+            [tokenizer.eos_token_id,
+             "<|end_of_turn|>",
+             "<|endoftext|>",
+             "GPT4 Correct User:"
+             ]
+
+    def format(self, prompt, response, system_prompt, settings):
+        text = ""
+        if system_prompt and system_prompt.strip() != "":
+            text += system_prompt
+            text += "<|end_of_turn|>"
+        text += "GPT4 Correct User:"
+        text += prompt
+        text += "<|end_of_turn|>"
+        text += "GPT4 Correct Assistant:"
+        if response:
+            text += response
+            text += "<|end_of_turn|>"
+        return text
+
+
+class PromptFormat_gemma(PromptFormat):
+
+    description = "OpenChat"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def is_instruct(self):
+        return True
+
+    def stop_conditions(self, tokenizer, settings):
+        return \
+            [tokenizer.eos_token_id,
+             "<end_of_turn>",
+             ]
+
+    def format(self, prompt, response, system_prompt, settings):
+        text = ""
+        if system_prompt is not None:
+            text += "<bos>"
+            # s = system_prompt.strip()
+            # if s != "":
+            #     text += "<start_of_turn>user\n"
+            #     text += s + "<end_of_turn>\n"
+            #     text += "<start_of_turn>model\n"
+            #     text += "Okay!<end_of_turn>\n"
+        text += "<start_of_turn>user\n"
+        text += prompt
+        text += "<end_of_turn>\n"
+        text += "<start_of_turn>model\n"
+        if response:
+            text += response
+            text += "<end_of_turn>\n"
+        return text
+
+    @staticmethod
+    def supports_system_prompt():
+        return False
+
+
+class PromptFormat_cohere(PromptFormat):
+
+    description = "Cohere"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def is_instruct(self):
+        return True
+
+    def stop_conditions(self, tokenizer, settings):
+        return \
+            [tokenizer.eos_token_id,
+             "<|END_OF_TURN_TOKEN|>",
+             ]
+
+    def format(self, prompt, response, system_prompt, settings):
+        text = ""
+        if system_prompt is not None:
+            text += "<BOS_TOKEN>"
+            text += "<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>"
+            text += system_prompt.strip()
+            text += "<|END_OF_TURN_TOKEN|>"
+        text += "<|START_OF_TURN_TOKEN|><|USER_TOKEN|>"
+        text += prompt
+        text += "<|END_OF_TURN_TOKEN|>"
+        text += "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+        if response:
+            text += response
+            text += "<|END_OF_TURN_TOKEN|>"
+        return text
+
 
 prompt_formats = \
 {
     "Chat-RP": PromptFormat_raw,
     "Llama-chat": PromptFormat_llama,
+    "Llama3-instruct": PromptFormat_llama3,
     "ChatML": PromptFormat_chatml,
     "TinyLlama-chat": PromptFormat_tinyllama,
     "MistralLite": PromptFormat_mistrallite,
     "Phind-CodeLlama": PromptFormat_phind_codellama,
     "Deepseek-chat": PromptFormat_deepseek_chat,
     "Deepseek-instruct": PromptFormat_deepseek_instruct,
+    "OpenChat": PromptFormat_openchat,
+    "Gemma": PromptFormat_gemma,
+    "Cohere": PromptFormat_cohere,
 }
 
 def list_prompt_formats():
     global prompt_formats
-    return list(prompt_formats.keys())
+    prompts = [
+        {
+            "name": k,
+            "supports_system_prompt": v.supports_system_prompt()
+        }
+        for k, v in prompt_formats.items()
+    ]
+    return prompts

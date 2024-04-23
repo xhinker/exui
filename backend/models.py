@@ -7,6 +7,7 @@ from exllamav2 import(
     ExLlamaV2Config,
     ExLlamaV2Cache,
     ExLlamaV2Cache_8bit,
+    ExLlamaV2Cache_Q4,
     ExLlamaV2Tokenizer,
 )
 
@@ -66,8 +67,12 @@ def get_model_info(data = None):
 
     i = data["model_uuid"]
     if i is None: return None
-    return models[i]
-
+    m = models[i]
+    if m.get("draft_enabled", False):
+        m["draft_enabled"] = False
+        m["speculative_mode"] = "Draft model"
+    if "speculative_mode" not in m: m["speculative_mode"] = "None"
+    return m
 
 # Remove model config
 
@@ -117,10 +122,13 @@ def update_model(data):
 
 def prepare_draft_model(model):
 
-    if "draft_enabled" not in model: model["draft_enabled"] = False
-    if model["draft_enabled"]:
+    if "speculative_mode" not in model:
+        model["speculative_mode"] = "None"
+
+    if model["speculative_mode"] == "Draft model":
 
         prep_draft_config = ExLlamaV2Config()
+        prep_draft_config.fasttensors = False
         prep_draft_config.model_dir = expanduser(model.get("draft_model_directory", ""))
         try:
             prep_draft_config.prepare()
@@ -149,6 +157,7 @@ def prepare_draft_model(model):
 def prepare_model(model):
 
     prep_config = ExLlamaV2Config()
+    prep_config.fasttensors = False
     prep_config.model_dir = expanduser(model["model_directory"])
 
     try:
@@ -194,8 +203,7 @@ class ModelContainer:
     generator: ExLlamaV2StreamingGenerator or None = None
     model_dict = None
 
-    cache_fp8: bool = False
-    draft_enabled: bool = False
+    # draft_enabled: bool = False
 
     def __init__(self, model, progress_callback = None):
 
@@ -210,10 +218,15 @@ class ModelContainer:
         self.config.scale_alpha_value = model["rope_alpha"]
         self.config.max_input_len = model["chunk_size"]
         self.config.max_attn_size = model["chunk_size"] ** 2
+        self.config.max_output_len = 16
 
-        self.draft_enabled = self.model_dict["draft_enabled"] if "draft_enabled" in self.model_dict else False
+        if self.model_dict.get("draft_enabled", False):
+            self.model_dict["draft_enabled"] = False
+            self.model_dict["speculative_mode"] = "Draft model"
 
-        if self.draft_enabled:
+        self.speculative_mode = self.model_dict.get("speculative_mode", "None")
+
+        if self.speculative_mode == "Draft model":
 
             self.draft_config = ExLlamaV2Config()
             self.draft_config.model_dir = expanduser(model["draft_model_directory"])
@@ -238,15 +251,16 @@ class ModelContainer:
 
     def load(self, progress_callback = None):
 
-        if self.model_dict["cache_mode"] == "FP8": self.cache_fp8 = True
-        elif self.model_dict["cache_mode"] == "FP16": self.cache_fp8 = False
-        else: raise ValueError("bad cache_mode: " + self.model_dict["cache_mode"])
+        ExLlamaV2Tokenizer.unspecial_piece_to_id = {}  # TODO: won't be necessary from exllamav2 0.0.17
+        ExLlamaV2Tokenizer.unspecial_id_to_piece = {}
+        ExLlamaV2Tokenizer.extended_id_to_piece = {}
+        ExLlamaV2Tokenizer.extended_piece_to_id = {}
 
         self.tokenizer = ExLlamaV2Tokenizer(self.config)
 
         # Load draft model
 
-        if self.draft_enabled:
+        if self.speculative_mode == "Draft model":
 
             self.draft_model = ExLlamaV2(self.draft_config)
             print("Loading draft model: " + self.draft_config.model_dir)
@@ -279,10 +293,14 @@ class ModelContainer:
                 if isinstance(value, str):
                     yield value
 
-        if self.cache_fp8:
-            self.cache = ExLlamaV2Cache_8bit(self.model, lazy = auto_split)
-        else:
+        if self.model_dict["cache_mode"] == "FP16":
             self.cache = ExLlamaV2Cache(self.model, lazy = auto_split)
+        elif self.model_dict["cache_mode"] == "FP8":
+            self.cache = ExLlamaV2Cache_8bit(self.model, lazy = auto_split)
+        elif self.model_dict["cache_mode"] == "Q4":
+            self.cache = ExLlamaV2Cache_Q4(self.model, lazy = auto_split)
+        else:
+            raise ValueError("Unknown cache mode: " + self.model_dict["cache_mode"])
 
         if auto_split:
             reserve = [96 * 1024**2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

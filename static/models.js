@@ -235,8 +235,8 @@ export class ModelView {
             this.tb_chunk_size.refresh();
             this.tb_gpu_split.refresh();
 
-            this.chbk_speculative.refresh();
-            if (this.modelInfo.draft_enabled) {
+            this.cb_speculative.refresh();
+            if (this.modelInfo.speculative_mode == "Draft model") {
                 this.element_draft_model.classList.remove("hidden");
                 this.tb_draft_model_directory.refresh();
 
@@ -347,9 +347,10 @@ export class ModelView {
         this.tb_seq_len = new controls.LabelNumbox("model-view-item-left", "Context length", "model-view-item-textbox shortright", "", this.modelInfo, "seq_len", 32, 1024*1024, 0, () => { this.send() } );
         this.tb_rope_scale = new controls.LabelNumbox("model-view-item-left", "RoPE scale", "model-view-item-textbox shortright", "", this.modelInfo, "rope_scale", 0.01, 1000, 2, () => { this.send() } );
         this.tb_rope_alpha = new controls.LabelNumbox("model-view-item-left", "RoPE alpha", "model-view-item-textbox shortright", "", this.modelInfo, "rope_alpha", 0.01, 1000, 2, () => { this.send() } );
-        this.cb_cache_mode = new controls.LabelCombobox("model-view-item-left", "Cache mode", "model-view-item-combobox short", [ "FP16", "FP8" ], this.modelInfo, "cache_mode", () => { this.send() } );
+        this.cb_cache_mode = new controls.LabelCombobox("model-view-item-left", "Cache mode", "model-view-item-combobox short", [ "FP16", "FP8", "Q4" ], this.modelInfo, "cache_mode", () => { this.send() } );
         this.tb_chunk_size = new controls.LabelNumbox("model-view-item-left", "Chunk size", "model-view-item-textbox shortright", "", this.modelInfo, "chunk_size", 32, 1024*1024, 0, () => { this.send() } );
         this.tb_gpu_split = new controls.LabelTextbox("model-view-item-left", "GPU split", "model-view-item-textbox short", "8.5,12", this.modelInfo, "gpu_split", null, () => { this.send() }, "gpu_split_auto" );
+//        this.chbk_ngram = new controls.LabelCheckbox("model-view-item-left", "N-gram decoding", "model-view-item-right checkbox", "Enabled", this.modelInfo, "speculative_ngram", () => { this.send() } );
 
         this.element_model.appendChild(this.tb_seq_len.element);
         this.element_model.appendChild(this.tb_rope_scale.element);
@@ -357,6 +358,7 @@ export class ModelView {
         this.element_model.appendChild(this.cb_cache_mode.element);
         this.element_model.appendChild(this.tb_chunk_size.element);
         this.element_model.appendChild(this.tb_gpu_split.element);
+//        this.element_model.appendChild(this.chbk_ngram.element);
 
         // Speculative decoding
 
@@ -364,8 +366,10 @@ export class ModelView {
         this.element_model.appendChild(util.newDiv(null, "model-view-text divider", ""));
         this.element_model.appendChild(util.newDiv(null, "model-view-text spacer", ""));
 
-        this.chbk_speculative = new controls.LabelCheckbox("model-view-item-left", "Speculative decoding", "model-view-item-right checkbox", "Enabled", this.modelInfo, "draft_enabled", () => { this.send() } );
-        this.element_model.appendChild(this.chbk_speculative.element);
+//        this.chbk_speculative = new controls.LabelCheckbox("model-view-item-left", "Speculative decoding", "model-view-item-right checkbox", "Enabled", this.modelInfo, "draft_enabled", () => { this.send() } );
+//        this.element_model.appendChild(this.chbk_speculative.element);
+        this.cb_speculative = new controls.LabelCombobox("model-view-item-left", "Speculative decoding", "model-view-item-combobox short", [ "None", "N-gram", "Draft model" ], this.modelInfo, "speculative_mode", () => { this.send() } );
+        this.element_model.appendChild(this.cb_speculative.element);
 
         this.element_draft_model = util.newHFlex();
         this.element_model.appendChild(this.element_draft_model);

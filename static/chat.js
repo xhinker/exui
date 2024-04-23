@@ -7,6 +7,45 @@ import * as overlay from "./overlay.js";
 import * as chatsettings from "./chatsettings.js";
 import * as roles from "./roles.js";
 
+// Copy button for code blocks
+
+const renderer = new marked.Renderer();
+
+function escapeHTML(html) {
+    return html
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function escapeUserHTML(html) {
+    return html
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+}
+
+function escapeBlock(text) {
+    return text
+        .replace(/([\\`*_{}[\]()#+\-.!>])/g, '\\$1');
+}
+
+renderer.code = function(code, infostring, escaped) {
+    const uniqueId = `copy-${Math.random().toString(16).slice(2)}`;
+    let escapedCode = escapeHTML(code);
+    return `
+        <div class="code-block">
+            <pre><code>${escapedCode}</code></pre>
+            <button id="save-${uniqueId}" data-text="${escape(code)}" class="save-btn">🖫 Save...</button>
+            <button id="copy-${uniqueId}" data-clipboard-text="${escape(code)}" class="copy-btn">🗎 Copy</button>
+        </div>
+    `;
+};
+
+marked.setOptions({ renderer });
+
 export class Chat {
     constructor() {
         this.page = util.newDiv(null, "models");
@@ -31,6 +70,41 @@ export class Chat {
         this.items = new Map();
         this.labels = new Map();
         this.currentView = null;
+
+        // Handle copy and save buttons in any dynamically added child elements
+
+        layout.addEventListener('click', function(event) {
+            if (event.target && event.target.classList.contains('copy-btn')) {
+                const text = unescape(event.target.getAttribute('data-clipboard-text'));
+                navigator.clipboard.writeText(text).then(() => {
+                    event.target.classList.add("clicked");
+                    event.target.textContent = '✓ Copied';
+                    console.log('Text copied to clipboard');
+                }).catch(err => {
+                    console.error('Error in copying text: ', err);
+                });
+            }
+
+            if (event.target && event.target.classList.contains('save-btn')) {
+                const text = unescape(event.target.getAttribute('data-text'));
+                util.saveStringDialog(text, "codeblock.txt");
+            }
+        });
+
+        layout.addEventListener('mouseleave', function(event) {
+            if (event.target && event.target.classList.contains('code-block')) {
+                let button = event.target.querySelector('.copy-btn');
+                if (button) {
+                    button.textContent = '🗎 Copy'; // Revert button text to "Copy"
+                    button.classList.remove("clicked");
+                }
+                button = event.target.querySelector('.save-btn');
+                if (button) {
+                    button.textContent = '🖫 Save...'; // Revert button text to "Copy"
+                    button.classList.remove("clicked");
+                }
+            }
+        }, true);
     }
 
     onEnter(getResponse = false) {
@@ -158,7 +232,6 @@ class SessionView {
         this.sessionInput = sdiv.children[0];
 
         this.items = new Map();
-
     }
 
     createInputField() {
@@ -171,7 +244,11 @@ class SessionView {
         div.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
-                this.submitInput();
+                if (event.ctrlKey) {
+                    this.regenerateLastAssistant();
+                } else {
+                    this.submitInput();
+                }
             }
         });
         div.addEventListener('input', () => { this.inputFieldAutogrow(); });
@@ -294,6 +371,15 @@ class SessionView {
         }
     }
 
+    regenerateLastAssistant() {
+        let lastblock = null;
+        for (const b of this.items)
+            if (b[1].block.author == "assistant")
+                lastblock = b[1];
+        if (lastblock)
+            lastblock.regenerateBlock(lastblock);
+    }
+
     disableInput() {
         //console.log("disable");
         this.sessionInput.disabled = true;
@@ -333,16 +419,18 @@ class SessionView {
         });
     }
 
-    getModelResponse() {
+    getModelResponse(block_id = null, prefix = null) {
 
         this.disableInput();
         let packet = {};
+        packet.block_id = block_id;
+        packet.prefix = prefix;
 
         let timeout = new Promise((resolve, reject) => {
             let id = setTimeout(() => {
                 clearTimeout(id);
                 reject('No response from server')
-            }, 10000)
+            }, 180000)
         });
 
         let fetchRequest = fetch("/api/generate", {
@@ -405,7 +493,7 @@ class SessionView {
 
     receivedStreamResponse(response) {
 
-        //this.stickyScroll = this.isNearBottom();
+        this.stickyScroll = this.isNearBottom();
 
         if (response.result == "begin_block") {
             this.currentStreamingBlock = this.setChatBlock(response.block);
@@ -421,6 +509,10 @@ class SessionView {
 
         if (response.result == "ok") {
             this.currentStreamingBlock.set(response.new_block);
+        }
+
+        if (response.result == "cancel_pre") {
+
         }
 
         if (this.stickyScroll) this.scrollToBottom();
@@ -440,11 +532,29 @@ class SessionView {
         }
     }
 
-    removeBlock(chatBlock) {
-        let uuid = chatBlock.block.block_uuid;
-        this.items.delete(uuid);
-        this.history.delete(uuid);
-        chatBlock.element.remove();
+    removeBlock(chatBlock, deletefromhere = false) {
+        if (deletefromhere)
+        {
+            let todelete = [];
+            let deleting = false;
+            for (const block of this.items) {
+                console.log(block);
+
+                if (deleting || block[0] == chatBlock.block.block_uuid) {
+                    deleting = true;
+                    todelete.push(block[1]);
+                }
+            }
+            console.log(todelete);
+            for (const block of todelete) {
+                this.removeBlock(block, false);
+            }
+        } else {
+            let uuid = chatBlock.block.block_uuid;
+            this.items.delete(uuid);
+            this.history.delete(uuid);
+            chatBlock.element.remove();
+        }
     }
 }
 
@@ -452,6 +562,7 @@ class ChatBlock {
     constructor(parent, block) {
         this.parent = parent;
         this.block = block;
+        if (!this.block.text) this.block.text = "";
 
         this.element = util.newDiv("chat_block_" + this.block.block_uuid, "session-block");
         this.inner = util.newVFlex();
@@ -475,6 +586,7 @@ class ChatBlock {
 
     set(block) {
         this.block = block;
+        if (!this.block.text) this.block.text = "";
 
         this.updateAvatarImg();
         this.updateText();
@@ -484,6 +596,7 @@ class ChatBlock {
     getRoleID()
     {
         if (!this.parent.chatSettings) return -1;
+        if (!this.block.text) return -1;
         let t = this.block.text.toUpperCase();
         for (let i = 0; i < 8; i++)
             if (t.startsWith(this.parent.chatSettings.roles[i].toUpperCase() + ":")) return i;
@@ -525,7 +638,10 @@ class ChatBlock {
 
         let html = "";
         if (name) html += "<div class='name' style='color: " + col + "'>" + name + "</div>"
-        html += marked.parse(text);
+        if (this.block.author == "user")
+            html += marked.parse(escapeBlock(escapeUserHTML(text)));
+        else
+            html += marked.parse(text);
 
         this.textBlock.innerHTML = html;
     }
@@ -588,7 +704,7 @@ class ChatBlock {
         span.innerHTML = "✕ Delete";
         this.actdiv.appendChild(span);
         span.addEventListener('click', () => {
-            this.deleteBlock();
+            this.deleteBlock(false);
         });
 
         span = document.createElement("span");
@@ -599,16 +715,48 @@ class ChatBlock {
             this.editBlock()
         });
 
+        this.ddTimeout = null;
+        this.popup = util.newDiv(null, "chat-popup");
+        var item;
+        if (this.block.author == "assistant") {
+            item = util.newDiv(null, "action", "⭮ Regenerate");
+            item.addEventListener('click', () => {
+                this.regenerateBlock(this);
+            });
+            this.popup.appendChild(item);
+            item = util.newDiv(null, "action", "⤑ Complete");
+            item.addEventListener('click', () => {
+                this.completeBlock(this);
+            });
+            this.popup.appendChild(item);
+        }
+        item = util.newDiv(null, "action", "✀ Delete from here");
+        item.addEventListener('click', () => {
+            this.deleteBlock(true);
+        });
+        this.popup.appendChild(item);
+
+        span = document.createElement("span");
+        span.classList.add("action");
+        span.innerHTML = "… More";
+        this.actdiv.appendChild(span);
+        span.addEventListener('click', () => {
+            this.blockDropdownOpen();
+        });
+
+        this.element.appendChild(this.popup);
         this.element.appendChild(this.actdiv);
     }
 
-    deleteBlock() {
+    deleteBlock(deletefromhere = false) {
+        console.log(deletefromhere);
         let packet = {};
         packet.block_uuid = this.block.block_uuid;
+        packet.delete_from_here = deletefromhere;
         fetch("/api/delete_block", { method: "POST", headers: { "Content-Type": "application/json", }, body: JSON.stringify(packet) })
         .then(response => response.json())
         .then(response => {
-            this.parent.removeBlock(this);
+            this.parent.removeBlock(this, deletefromhere);
         });
     }
 
@@ -640,5 +788,54 @@ class ChatBlock {
             this.parent.focusInputField();
         }, this.rawtext, true);
     }
-}
 
+    blockDropdownOpen() {
+//        var rect = event.target.getBoundingClientRect();
+//        var rectp = popup.getBoundingClientRect();
+        this.popup.style.display = "block";
+
+        if (this.ddTimeout) clearTimeout(this.ddTimeout);
+        this.ddTimeout = null;
+
+        this.popup.addEventListener('mouseleave', () => {
+            this.blockDropdownLeave();
+        });
+        this.popup.addEventListener('mouseenter', () => {
+            this.blockDropdownEnter();
+        });
+    }
+
+    blockDropdownClose() {
+        this.popup.style.display = "none";
+    }
+
+    blockDropdownLeave() {
+        if (this.ddTimeout) clearTimeout(this.ddTimeout);
+        this.ddTimeout = setTimeout(() => {
+            this.blockDropdownClose();
+        }, 500);
+    }
+
+    blockDropdownEnter() {
+        if (this.ddTimeout) clearTimeout(this.ddTimeout);
+    }
+
+    regenerateBlock(block) {
+        if (!globals.g.loadedModelUUID) return;
+        block.block.text = "";
+        block.updateText();
+        if (block.parent.isNearBottom())
+            block.parent.stickyScroll = true;
+        block.parent.currentStreamingBlock = block;
+        block.parent.getModelResponse(block.block.block_uuid, null);
+    }
+
+    completeBlock(block) {
+        if (!globals.g.loadedModelUUID) return;
+        block.updateText();
+        if (block.parent.isNearBottom())
+            block.parent.stickyScroll = true;
+        block.parent.currentStreamingBlock = block;
+        block.parent.getModelResponse(block.block.block_uuid, block.block.text);
+    }
+}

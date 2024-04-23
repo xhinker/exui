@@ -448,3 +448,119 @@
     cursor: pointer;
 }
 
+.code-block {
+    position: relative;
+}
+
+.code-block pre {
+}
+
+.copy-btn {
+    background-color: var(--button-background);
+    font-size: var(--font-size-small);
+    border-radius: 5px;
+    border: 1px solid var(--button-border);
+    color: var(--button-textcolor);
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 4px;
+    padding-bottom: 0px;
+    height: 30px;
+    display: none;
+    cursor: pointer;
+}
+
+.copy-btn.clicked {
+    padding-top: 0px;
+    background-color: var(--button-disabled-background);
+    border: 1px solid var(--button-disabled-border);
+}
+
+.copy-btn.clicked:hover {
+    cursor: unset;
+    filter: unset;
+}
+
+.copy-btn:hover {
+    filter: brightness(var(--hover-brightness));
+    cursor: pointer;
+}
+.code-block:hover .copy-btn {
+    display: block;
+}
+
+
+.save-btn {
+    background-color: var(--button-background);
+    font-size: var(--font-size-small);
+    border-radius: 5px;
+    border: 1px solid var(--button-border);
+    color: var(--button-textcolor);
+    position: absolute;
+    top: 10px;
+    right: 82px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 4px;
+    padding-bottom: 0px;
+    height: 30px;
+    display: none;
+    cursor: pointer;
+}
+
+.save-btn.clicked {
+    padding-top: 0px;
+    background-color: var(--button-disabled-background);
+    border: 1px solid var(--button-disabled-border);
+}
+
+.save-btn.clicked:hover {
+    cursor: unset;
+    filter: unset;
+}
+
+.save-btn:hover {
+    filter: brightness(var(--hover-brightness));
+    cursor: pointer;
+}
+.code-block:hover .save-btn {
+    display: block;
+}
+
+.chat-popup {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 128px;
+    background: var(--background-color-popup);
+    border-radius: 10px;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
+    color: white;
+    padding: 10px;
+    padding-bottom: 0px;
+    z-index: 1000;
+    border: 1px solid var(--button-disabled-border);
+    display: none;
+}
+
+.chat-popup div {
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    color: var(--textcolor-head);
+    margin-bottom: 5px;
+    user-drag: none;
+    user-select: none;
+    height: 24px;
+}
+
+.chat-popup div:hover {
+    filter: brightness(var(--hover-brightness));
+    cursor: pointer;
+}
+
+.chat-popup action:last-child {
+    margin-bottom: 0;
+}

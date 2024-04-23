@@ -17,16 +17,17 @@ from backend.config import set_config_dir, global_state, config_filename
 from backend.models import get_loaded_model
 from backend.prompts import prompt_formats
 from backend.util import MultiTimer
+import threading
 
 notepad_list: dict or None = None
 current_notepad = None
 
 # Cancel
 
-cancel_signal = False
+abort_event = threading.Event()
 def set_notepad_cancel_signal():
-    global cancel_signal
-    cancel_signal = True
+    global abort_event
+    abort_event.set()
 
 
 def list_notepads():
@@ -73,7 +74,7 @@ def new_notepad():
     global current_notepad, notepad_list
     current_notepad = Notepad()
     current_notepad.init_new()
-    print(f"Created notepad {current_notepad.notepad_uuid}")
+    # print(f"Created notepad {current_notepad.notepad_uuid}")
     filename = current_notepad.save()
     notepad_list[current_notepad.notepad_uuid] = (current_notepad.name, filename)
     return current_notepad.to_json()
@@ -106,6 +107,9 @@ def get_default_notepad_settings():
         "repp": 1.1,
         "repr": 1024,
         "repd": 512,
+        "quad_sampling": 0.0,
+        "temperature_last": False,
+        "skew": 0.0,
         "stop_conditions": [ { "text": "</s>", "inclusive": False } ],
     }
 
@@ -198,7 +202,8 @@ class Notepad:
         for token in tokens:
             t = {}
             t["id"] = token
-            t["piece"] = m.tokenizer.extended_id_to_piece.get(token, id_to_piece[token])
+            ext_piece = m.tokenizer.extended_id_to_piece.get(token)
+            t["piece"] = ext_piece if ext_piece else id_to_piece[token]
             tokenized.append(t)
         return tokenized
 
@@ -207,14 +212,17 @@ class Notepad:
 
         gen_settings = ExLlamaV2Sampler.Settings()
         gen_settings.temperature = self.settings["temperature"]
+        gen_settings.temperature_last = self.settings["temperature_last"]
         gen_settings.top_k = self.settings["top_k"]
         gen_settings.top_p = self.settings["top_p"]
         gen_settings.min_p = self.settings["min_p"]
+        gen_settings.smoothing_factor = self.settings["quad_sampling"]
         gen_settings.tfs = self.settings["tfs"]
         gen_settings.typical = self.settings["typical"]
         gen_settings.mirostat = self.settings["mirostat"]
         gen_settings.mirostat_tau = self.settings["mirostat_tau"]
         gen_settings.mirostat_eta = self.settings["mirostat_eta"]
+        gen_settings.skew = self.settings["skew"]
         gen_settings.token_repetition_penalty = self.settings["repp"]
         gen_settings.token_repetition_range = self.settings["repr"]
         gen_settings.token_repetition_decay = self.settings["repr"]
@@ -229,6 +237,7 @@ class Notepad:
 
 
     def generate_single_token(self, data):
+        global abort_event
 
         if get_loaded_model() is None:
             packet = { "result": "fail", "error": "No model loaded." }
@@ -264,7 +273,7 @@ class Notepad:
 
         # Generate
 
-        generator.begin_stream(context_ids, gen_settings, token_healing = True)
+        generator.begin_stream(context_ids, gen_settings, token_healing = True, abort_event = abort_event)
         generator.set_stop_conditions([])
 
         # Get one token (or at least one UTF-8 character)
@@ -295,7 +304,7 @@ class Notepad:
 
 
     def generate(self, data):
-        global cancel_signal
+        global abort_event
 
         if get_loaded_model() is None:
             packet = { "result": "fail", "error": "No model loaded." }
@@ -341,7 +350,7 @@ class Notepad:
 
         # Generator loop
 
-        cancel_signal = False
+        abort_event.clear()
 
         total_tokens = 0
         max_tokens = self.settings["maxtokens"]
@@ -349,8 +358,7 @@ class Notepad:
         token_healing = True
         while True:
 
-            if cancel_signal:
-                break
+            if abort_event.is_set(): break
 
             # Adjust context
 
@@ -363,7 +371,14 @@ class Notepad:
             if self.context_head != prev_head:
                 prev_head = self.context_head
                 context_ids = full_context_ids[:, self.context_head:]
-                generator.begin_stream(context_ids, gen_settings, token_healing = token_healing)
+                generator.begin_stream(context_ids, gen_settings, token_healing = token_healing, abort_event = abort_event)
+                if abort_event.is_set():
+                    abort_event.clear()
+                    packet = {}
+                    packet["result"] = "cancel"
+                    yield json.dumps(packet) + "\n"
+                    return packet
+
                 generator.set_stop_conditions(exclusive_sc)
                 token_healing = False
 
@@ -408,7 +423,8 @@ class Notepad:
         # Response
 
         packet = {}
-        if cancel_signal:
+        if abort_event.is_set():
+            abort_event.clear()
             packet["result"] = "cancel"
         else:
             packet["result"] = "ok"
