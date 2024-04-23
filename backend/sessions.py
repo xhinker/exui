@@ -93,7 +93,7 @@ def delete_session(d_session):
 
 def get_default_session_settings():
     return {
-        "prompt_format": "Chat-RP",
+        "prompt_format": "llama3",
         "roles": [ "User", "Assistant", "", "", "", "", "", "" ],
         "system_prompt_default": True,
         #"system_prompt": "You are helpful assistant,smart,have the best common sense, good at answering questions.",
