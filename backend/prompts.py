@@ -430,7 +430,7 @@ prompt_formats = \
     "Deepseek-instruct": PromptFormat_deepseek_instruct,
     "OpenChat": PromptFormat_openchat,
     "Gemma": PromptFormat_gemma,
-    "llama3": PromptFormat_llama3_az,
+    "llama3_az": PromptFormat_llama3_az,
     "Cohere": PromptFormat_cohere,
 }
 
