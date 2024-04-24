@@ -73,6 +73,33 @@ class PromptFormat_llama(PromptFormat):
             text += "</s>"
         return text
 
+class PromptFormat_llama3_az(PromptFormat):
+
+    description = "llama3 chat format"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def is_instruct(self):
+        return True
+
+    def stop_conditions(self, tokenizer, settings):
+        return [tokenizer.encode("<|eot_id|>").item()]
+
+    def format(self, prompt, response, system_prompt, settings):
+        text = ""
+        if system_prompt and system_prompt.strip() != "":
+            text += "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n"
+            text += system_prompt
+            text += "<|eot_id|>\n"
+        text += "<|start_header_id|>user<|end_header_id|>\n"
+        text += prompt
+        text += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        if response:
+            text += response
+            text += "</s>"
+        return text
 
 class PromptFormat_llama3(PromptFormat):
 
@@ -402,6 +429,7 @@ prompt_formats = \
     "OpenChat": PromptFormat_openchat,
     "Gemma": PromptFormat_gemma,
     "Cohere": PromptFormat_cohere,
+    "llama3_az": PromptFormat_llama3_az,
 }
 
 def list_prompt_formats():

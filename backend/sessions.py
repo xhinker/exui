@@ -94,19 +94,15 @@ def delete_session(d_session):
 
 def get_default_session_settings():
     return {
-        "prompt_format": "Chat-RP",
+        "prompt_format": "llama3_az",
         "roles": [ "User", "Assistant", "", "", "", "", "", "" ],
         "system_prompt_default": True,
         #"system_prompt": "You are helpful assistant,smart,have the best common sense, good at answering questions.",
         #"system_prompt": "This is a chat between a curious user and a helpful AI assistant.",
-<<<<<<< HEAD
-        "system_prompt": "You are a helpful assistant, smart, have the best common sense, good at answering questions.",
-=======
         #"system_prompt": "You are a helpful and smart assistant",
-        #"system_prompt": "You are a helpful assistant, smart, and have the best common sense",
+        #"system_prompt": "You are a helpful assistant, smart, and have the best common sense, using Chain of thoughts",
         #"system_prompt": "You are a helpful assistant, smart, and have the best common sense, math expert, you know all math knowledge, you are also programming master.",
-        "system_prompt": "",
->>>>>>> bdf00ce21a06714edced52ce94bb72231b537df4
+        "system_prompt": "You act as a helpful assistant, smart, have the best common sense",
         "maxtokens": 2048,
         "chunktokens": 512,
         "stop_newline": False,
@@ -126,6 +122,7 @@ def get_default_session_settings():
         "temperature_last": False,
         "skew": 0.0,
     }
+
 
 class Session:
 
