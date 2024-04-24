@@ -123,6 +123,7 @@ def get_default_session_settings():
         "skew": 0.0,
     }
 
+
 class Session:
 
     name: str = None

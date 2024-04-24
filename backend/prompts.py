@@ -101,8 +101,6 @@ class PromptFormat_llama3_az(PromptFormat):
             text += "</s>"
         return text
 
-
-
 class PromptFormat_llama3(PromptFormat):
 
     description = "Llama-3 instruct template.chat"
@@ -432,6 +430,7 @@ prompt_formats = \
     "Gemma": PromptFormat_gemma,
     "llama3_az": PromptFormat_llama3_az,
     "Cohere": PromptFormat_cohere,
+    "llama3_az": PromptFormat_llama3_az,
 }
 
 def list_prompt_formats():
